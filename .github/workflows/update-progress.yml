@@ -2,7 +2,7 @@ name: Update Checklist Progress
 
 on:
   issues:
-    types: [opened, edited, reopened]
+    types: [opened, edited]
   workflow_dispatch:
 
 permissions:
@@ -17,13 +17,9 @@ jobs:
         with:
           script: |
             const issue = context.payload.issue;
-            if (!issue) {
-              console.log('No issue in context; exiting.');
-              return;
-            }
             let body = issue.body || '';
 
-            // Удаляем старый блок прогресса (если есть)
+            // Удаляем старый прогресс-бар
             body = body.replace(/<!-- CHECKLIST_PROGRESS_START -->[\s\S]*?<!-- CHECKLIST_PROGRESS_END -->\n?/m, '').trim();
 
             // Ищем чекбоксы с баллами: - [ ] ... (20 pts)
@@ -52,12 +48,11 @@ jobs:
             }
 
             const percent = totalTasks === 0 ? 0 : Math.round((doneTasks / totalTasks) * 100);
-            const filledCount = Math.round(percent / 5); // 20 сегментов
+            const filledCount = Math.round(percent / 5);
             const filled = '█'.repeat(Math.min(Math.max(filledCount, 0), 20));
             const empty = '░'.repeat(20 - filled.length);
             const bar = filled + empty;
 
-            // Собираем блок прогресса без backticks, безопасно для YAML
             const progressBlock =
               '<!-- CHECKLIST_PROGRESS_START -->\n' +
               '**Progress:** ' + doneTasks + '/' + totalTasks + ' (' + percent + '%)\n' +
@@ -78,5 +73,3 @@ jobs:
               issue_number: issue.number,
               body: newBody
             });
-
-            console.log('Issue updated with new progress block.');
