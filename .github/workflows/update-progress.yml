@@ -3,7 +3,6 @@ name: Update Checklist Progress
 on:
   issues:
     types: [opened, edited, reopened]
-  workflow_dispatch:
 
 permissions:
   issues: write
