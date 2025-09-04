@@ -1,0 +1,47 @@
+name: Update Checklist Progress
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  issues: write
+
+jobs:
+  update-progress:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Calculate checklist progress
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const body = issue.body || "";
+
+            // Найдём все чекбоксы
+            const matches = body.match(/- \[.\]/g) || [];
+            const total = matches.length;
+            const done = matches.filter(m => m.includes("[x]")).length;
+
+            // Строим полоску прогресса (20 сегментов)
+            const percent = total === 0 ? 0 : Math.round((done / total) * 100);
+            const filled = "█".repeat(Math.round(percent / 5));
+            const empty = "░".repeat(20 - filled.length);
+            const bar = `${filled}${empty}`;
+
+            // Готовим новую строку прогресса
+            const progressLine = `**Progress:** ${done}/${total} (${percent}%)\n${bar}`;
+
+            // Добавляем или обновляем в теле Issue
+            let newBody;
+            if (body.includes("**Progress:**")) {
+              newBody = body.replace(/\*\*Progress:\*\*[\s\S]*?\n(.*\n)?/, progressLine + "\n\n");
+            } else {
+              newBody = progressLine + "\n\n" + body;
+            }
+
+            await github.rest.issues.update({
+              ...context.repo,
+              issue_number: issue.number,
+              body: newBody
+            });
