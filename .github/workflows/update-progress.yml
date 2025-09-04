@@ -21,10 +21,10 @@ jobs:
               console.log('No issue in context; exiting.');
               return;
             }
-            let body = issue.body || "";
+            let body = issue.body || '';
 
             // Удаляем старый блок прогресса (если есть)
-            body = body.replace(/<!-- CHECKLIST_PROGRESS_START -->[\s\S]*?<!-- CHECKLIST_PROGRESS_END -->\n?/m, "").trim();
+            body = body.replace(/<!-- CHECKLIST_PROGRESS_START -->[\s\S]*?<!-- CHECKLIST_PROGRESS_END -->\n?/m, '').trim();
 
             // Ищем чекбоксы с баллами: - [ ] ... (20 pts)
             const lineRegex = /- \[( |x|X)\][^\n]*\((\d+)\s*pts\)/g;
@@ -42,7 +42,7 @@ jobs:
 
             for (const m of matches) {
               totalTasks += 1;
-              const checked = (m[1].toLowerCase() === "x");
+              const checked = (m[1].toLowerCase() === 'x');
               const pts = parseInt(m[2], 10) || 0;
               totalPoints += pts;
               if (checked) {
@@ -53,22 +53,22 @@ jobs:
 
             const percent = totalTasks === 0 ? 0 : Math.round((doneTasks / totalTasks) * 100);
             const filledCount = Math.round(percent / 5); // 20 сегментов
-            const filled = "█".repeat(Math.min(Math.max(filledCount, 0), 20));
-            const empty = "░".repeat(20 - filled.length);
-            const bar = `${filled}${empty}`;
+            const filled = '█'.repeat(Math.min(Math.max(filledCount, 0), 20));
+            const empty = '░'.repeat(20 - filled.length);
+            const bar = filled + empty;
 
-            // Формируем блок прогресса
-            const progressBlock = String.raw`<!-- CHECKLIST_PROGRESS_START -->
-**Progress:** ${doneTasks}/${totalTasks} (${percent}%)
-${bar}
+            // Собираем блок прогресса без backticks, безопасно для YAML
+            const progressBlock =
+              '<!-- CHECKLIST_PROGRESS_START -->\n' +
+              '**Progress:** ' + doneTasks + '/' + totalTasks + ' (' + percent + '%)\n' +
+              bar + '\n\n' +
+              '**Points:** ' + donePoints + '/' + totalPoints + '\n' +
+              '<!-- CHECKLIST_PROGRESS_END -->';
 
-**Points:** ${donePoints}/${totalPoints}
-<!-- CHECKLIST_PROGRESS_END -->`;
+            const newBody = progressBlock + '\n\n' + body;
 
-            const newBody = progressBlock + "\n\n" + body;
-
-            if (newBody.trim() === (issue.body || "").trim()) {
-              console.log("No changes to update.");
+            if (newBody.trim() === (issue.body || '').trim()) {
+              console.log('No changes to update.');
               return;
             }
 
@@ -79,4 +79,4 @@ ${bar}
               body: newBody
             });
 
-            console.log("Issue updated with new progress block.");
+            console.log('Issue updated with new progress block.');
