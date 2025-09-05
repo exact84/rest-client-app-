@@ -23,7 +23,7 @@ jobs:
             body = body.replace(/<!-- CHECKLIST_PROGRESS_START -->[\s\S]*?<!-- CHECKLIST_PROGRESS_END -->\n?/m, '');
 
             // Ищем чекбоксы с баллами: - [ ] ... (20 pts)
-            const lineRegex = /^- \[( |x|X)\][^\n]*\((\d+)\s*pts\)/gm;
+            const lineRegex = /^[ \t]*- \[( |x|X)\][^\n]*\((\d+)\s*pts\)/gm;
             const matches = [...body.matchAll(lineRegex)];
 
             if (matches.length === 0) {
