@@ -20,17 +20,13 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            // const issueNumber = github.context.payload.inputs?.issue_number || context.payload.issue?.number;
-            // if (!issueNumber) {
-            //   throw new Error('No issue number available. Run from an issue event or provide issue_number input.');
-            // }
-            // const issueNumber = context.payload.issue.number;
             const issueNumber =
-              github.context?.inputs?.issue_number ||   // ручной запуск
-              context.payload?.issue?.number;          // событие issues
-          
-            if (!issueNumber) return; // или throw
+              github.context?.inputs?.issue_number ||   // manual run
+              context.payload?.issue?.number ||          // issues evevnt
+              1; // default issue number
 
+            if (!issueNumber) return;
+            console.log('Using issue number:', issueNumber);
             const owner = context.repo.owner;
             const repo = context.repo.repo;
 
