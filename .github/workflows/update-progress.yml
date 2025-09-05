@@ -12,7 +12,7 @@ jobs:
   update-progress:
     runs-on: ubuntu-latest
     steps:
-      - name: Update checklist progress in sections
+      - name: Update checklist progress in sections and overall
         uses: actions/github-script@v7
         with:
           script: |
@@ -62,8 +62,24 @@ jobs:
               return header + sectionBody;
             });
 
-            // --- Обновляем тело issue только если есть изменения ---
-            if (body.trim() === issue.body.trim()) {
+            // --- Общий прогресс по всему issue ---
+            const overallProgress = calculateProgress(body);
+            const filledCount = Math.round((overallProgress.doneTasks / overallProgress.totalTasks) * 20);
+            const filled = '█'.repeat(Math.min(Math.max(filledCount,0),20));
+            const empty = '░'.repeat(20 - filled.length);
+            const bar = filled + empty;
+
+            const overallBlock =
+              '<!-- CHECKLIST_PROGRESS_START -->\n' +
+              `**Progress:** ${overallProgress.doneTasks}/${overallProgress.totalTasks} (${overallProgress.donePoints}/${overallProgress.totalPoints} pts)\n` +
+              bar + '\n' +
+              '<!-- CHECKLIST_PROGRESS_END -->\n\n';
+
+            // Удаляем старый общий прогресс и вставляем новый в начало issue
+            body = body.replace(/<!-- CHECKLIST_PROGRESS_START -->[\s\S]*?<!-- CHECKLIST_PROGRESS_END -->\n*/m, '');
+            const newBody = overallBlock + body;
+
+            if (newBody.trim() === issue.body.trim()) {
               console.log('No changes to update.');
               return;
             }
@@ -72,5 +88,5 @@ jobs:
               owner,
               repo,
               issue_number: issueNumber,
-              body
+              body: newBody
             });
