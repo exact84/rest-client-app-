@@ -12,7 +12,7 @@ jobs:
   update-progress:
     runs-on: ubuntu-latest
     steps:
-      - name: Update checklist progress and points in Issue
+      - name: Update checklist progress in sections
         uses: actions/github-script@v7
         with:
           script: |
@@ -45,46 +45,25 @@ jobs:
                   donePoints += pts;
                 }
               }
-
-              const percent = totalTasks === 0 ? 0 : Math.round((doneTasks / totalTasks) * 100);
-              const filledCount = Math.round(percent / 5);
-              const filled = '█'.repeat(Math.min(Math.max(filledCount, 0), 20));
-              const empty = '░'.repeat(20 - filled.length);
-              const bar = filled + empty;
-
-              return { totalTasks, doneTasks, totalPoints, donePoints, percent, bar };
+              return { totalTasks, doneTasks, totalPoints, donePoints };
             }
 
-            // --- Обновление прогресса в секциях ---
+            // --- Обновление прогресса внутри секций ---
             const sectionRegex = /(## [^\n]+?\n)([\s\S]*?)(?=(\n## |\n$))/g;
             body = body.replace(sectionRegex, (match, header, sectionBody) => {
               const progress = calculateProgress(sectionBody);
 
-              // Заменяем существующую строку Progress, если есть
-              const progressBlock = `**Progress:** ${progress.doneTasks}/${progress.totalTasks} (${progress.percent}%)\n${progress.bar}\n\n**Points:** ${progress.donePoints}/${progress.totalPoints}\n`;
-              if (sectionBody.includes('**Progress:**')) {
-                sectionBody = sectionBody.replace(/\*\*Progress:\*\*.*?\n(█|░)*\n\n\*\*Points:\*\*.*?\n/, progressBlock);
-              } else {
-                sectionBody = progressBlock + '\n' + sectionBody;
+              // Заменяем существующую строку **Progress: …** с числами
+              const newProgressLine = `**Progress: ${progress.doneTasks}/${progress.totalTasks} (${progress.donePoints}/${progress.totalPoints} pts)**`;
+              if (sectionBody.includes('**Progress:')) {
+                sectionBody = sectionBody.replace(/\*\*Progress:.*?\*\*/g, newProgressLine);
               }
 
               return header + sectionBody;
             });
 
-            // --- Общий прогресс ---
-            const overallProgress = calculateProgress(body);
-            const overallBlock =
-              '<!-- CHECKLIST_PROGRESS_START -->\n' +
-              '**Progress:** ' + overallProgress.doneTasks + '/' + overallProgress.totalTasks + ' (' + overallProgress.percent + '%)\n' +
-              overallProgress.bar + '\n\n' +
-              '**Points:** ' + overallProgress.donePoints + '/' + overallProgress.totalPoints + '\n' +
-              '<!-- CHECKLIST_PROGRESS_END -->\n\n';
-
-            // Удаляем старый общий прогресс и вставляем новый
-            body = body.replace(/<!-- CHECKLIST_PROGRESS_START -->[\s\S]*?<!-- CHECKLIST_PROGRESS_END -->\n*/m, '');
-            const newBody = overallBlock + body;
-
-            if (newBody.trim() === issue.body.trim()) {
+            // --- Обновляем тело issue только если есть изменения ---
+            if (body.trim() === issue.body.trim()) {
               console.log('No changes to update.');
               return;
             }
@@ -93,5 +72,5 @@ jobs:
               owner,
               repo,
               issue_number: issueNumber,
-              body: newBody
+              body
             });
