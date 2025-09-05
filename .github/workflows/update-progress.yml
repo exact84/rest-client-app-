@@ -16,65 +16,82 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const issue = context.payload.issue;
+            const issueNumber = context.payload.issue.number;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            // Получаем актуальное тело issue
+            const { data: issue } = await github.rest.issues.get({
+              owner,
+              repo,
+              issue_number: issueNumber
+            });
             let body = issue.body || '';
 
-            // Удаляем старый прогресс-бар
-            body = body.replace(/<!-- CHECKLIST_PROGRESS_START -->[\s\S]*?<!-- CHECKLIST_PROGRESS_END -->\n?/m, '');
+            // --- Функция подсчета прогресса по тексту ---
+            //  чекбоксы с баллами: - [ ] ... (20 pts). Чекбокс и баллы должны быть обязательно на одной строке! 
+            function calculateProgress(text) {
+              const lineRegex = /^[ \t]*- \[( |x|X)\][^\n]*\((\d+)\s*pts\)/gm;
+              const matches = [...text.matchAll(lineRegex)];
+              let totalTasks = 0, doneTasks = 0, totalPoints = 0, donePoints = 0;
 
-            // Ищем чекбоксы с баллами: - [ ] ... (20 pts)
-            const lineRegex = /^[ \t]*- \[( |x|X)\][^\n]*\((\d+)\s*pts\)/gm;
-            const matches = [...body.matchAll(lineRegex)];
-
-            if (matches.length === 0) {
-              console.log("No checklist items with '(N pts)' found.");
-              return;
-            }
-
-            let totalTasks = 0;
-            let doneTasks = 0;
-            let totalPoints = 0;
-            let donePoints = 0;
-
-            for (const m of matches) {
-              totalTasks += 1;
-              const checked = (m[1].toLowerCase() === 'x');
-              const pts = parseInt(m[2], 10) || 0;
-              totalPoints += pts;
-              if (checked) {
-                doneTasks += 1;
-                donePoints += pts;
+              for (const m of matches) {
+                totalTasks++;
+                const checked = m[1].toLowerCase() === 'x';
+                const pts = parseInt(m[2], 10) || 0;
+                totalPoints += pts;
+                if (checked) {
+                  doneTasks++;
+                  donePoints += pts;
+                }
               }
+
+              const percent = totalTasks === 0 ? 0 : Math.round((doneTasks / totalTasks) * 100);
+              const filledCount = Math.round(percent / 5);
+              const filled = '█'.repeat(Math.min(Math.max(filledCount, 0), 20));
+              const empty = '░'.repeat(20 - filled.length);
+              const bar = filled + empty;
+
+              return { totalTasks, doneTasks, totalPoints, donePoints, percent, bar };
             }
 
-            const percent = totalTasks === 0 ? 0 : Math.round((doneTasks / totalTasks) * 100);
-            const filledCount = Math.round(percent / 5);
-            const filled = '█'.repeat(Math.min(Math.max(filledCount, 0), 20));
-            const empty = '░'.repeat(20 - filled.length);
-            const bar = filled + empty;
+            // --- Обновление прогресса в секциях ---
+            const sectionRegex = /(## [^\n]+?\n)([\s\S]*?)(?=(\n## |\n$))/g;
+            body = body.replace(sectionRegex, (match, header, sectionBody) => {
+              const progress = calculateProgress(sectionBody);
 
-            const progressBlock =
+              // Заменяем существующую строку Progress, если есть
+              const progressBlock = `**Progress:** ${progress.doneTasks}/${progress.totalTasks} (${progress.percent}%)\n${progress.bar}\n\n**Points:** ${progress.donePoints}/${progress.totalPoints}\n`;
+              if (sectionBody.includes('**Progress:**')) {
+                sectionBody = sectionBody.replace(/\*\*Progress:\*\*.*?\n(█|░)*\n\n\*\*Points:\*\*.*?\n/, progressBlock);
+              } else {
+                sectionBody = progressBlock + '\n' + sectionBody;
+              }
+
+              return header + sectionBody;
+            });
+
+            // --- Общий прогресс ---
+            const overallProgress = calculateProgress(body);
+            const overallBlock =
               '<!-- CHECKLIST_PROGRESS_START -->\n' +
-              '**Progress:** ' + doneTasks + '/' + totalTasks + ' (' + percent + '%)\n' +
-              bar + '\n\n' +
-              '**Points:** ' + donePoints + '/' + totalPoints + '\n' +
-              '<!-- CHECKLIST_PROGRESS_END -->';
+              '**Progress:** ' + overallProgress.doneTasks + '/' + overallProgress.totalTasks + ' (' + overallProgress.percent + '%)\n' +
+              overallProgress.bar + '\n\n' +
+              '**Points:** ' + overallProgress.donePoints + '/' + overallProgress.totalPoints + '\n' +
+              '<!-- CHECKLIST_PROGRESS_END -->\n\n';
 
-            // Добавляем прогресс-блок перед текущим телом без лишнего трима
-            const newBody = progressBlock + '\n' + body;
+            // Удаляем старый общий прогресс и вставляем новый
+            body = body.replace(/<!-- CHECKLIST_PROGRESS_START -->[\s\S]*?<!-- CHECKLIST_PROGRESS_END -->\n*/m, '');
+            const newBody = overallBlock + body;
 
-            // Лог для отладки
-            console.log('Old body length:', issue.body.length);
-            console.log('New body length:', newBody.length);
-
-            if (newBody.trim() === (issue.body || '').trim()) {
+            if (newBody.trim() === issue.body.trim()) {
               console.log('No changes to update.');
               return;
             }
 
             await github.rest.issues.update({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issue.number,
+              owner,
+              repo,
+              issue_number: issueNumber,
               body: newBody
             });
