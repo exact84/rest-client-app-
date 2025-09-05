@@ -20,7 +20,7 @@ jobs:
             let body = issue.body || '';
 
             // Удаляем старый прогресс-бар
-            body = body.replace(/<!-- CHECKLIST_PROGRESS_START -->[\s\S]*?<!-- CHECKLIST_PROGRESS_END -->\n?/m, '').trim();
+            body = body.replace(/<!-- CHECKLIST_PROGRESS_START -->[\s\S]*?<!-- CHECKLIST_PROGRESS_END -->\n?/m, '');
 
             // Ищем чекбоксы с баллами: - [ ] ... (20 pts)
             const lineRegex = /^- \[( |x|X)\][^\n]*\((\d+)\s*pts\)/gm;
@@ -60,7 +60,12 @@ jobs:
               '**Points:** ' + donePoints + '/' + totalPoints + '\n' +
               '<!-- CHECKLIST_PROGRESS_END -->';
 
-            const newBody = progressBlock + '\n\n' + body;
+            // Добавляем прогресс-блок перед текущим телом без лишнего трима
+            const newBody = progressBlock + '\n' + body;
+
+            // Лог для отладки
+            console.log('Old body length:', issue.body.length);
+            console.log('New body length:', newBody.length);
 
             if (newBody.trim() === (issue.body || '').trim()) {
               console.log('No changes to update.');
