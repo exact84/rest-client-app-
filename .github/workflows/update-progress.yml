@@ -24,7 +24,13 @@ jobs:
             // if (!issueNumber) {
             //   throw new Error('No issue number available. Run from an issue event or provide issue_number input.');
             // }
-            const issueNumber = context.payload.issue.number;
+            // const issueNumber = context.payload.issue.number;
+            const issueNumber =
+              github.context?.inputs?.issue_number ||   // ручной запуск
+              context.payload?.issue?.number;          // событие issues
+          
+            if (!issueNumber) return; // или throw
+
             const owner = context.repo.owner;
             const repo = context.repo.repo;
 
