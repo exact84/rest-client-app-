@@ -20,10 +20,11 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const issueNumber = github.context.payload.inputs?.issue_number || context.payload.issue?.number;
-            if (!issueNumber) {
-              throw new Error('No issue number available. Run from an issue event or provide issue_number input.');
-            }
+            // const issueNumber = github.context.payload.inputs?.issue_number || context.payload.issue?.number;
+            // if (!issueNumber) {
+            //   throw new Error('No issue number available. Run from an issue event or provide issue_number input.');
+            // }
+            const issueNumber = context.payload.issue.number;
             const owner = context.repo.owner;
             const repo = context.repo.repo;
 
